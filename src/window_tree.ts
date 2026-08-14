@@ -1,43 +1,73 @@
 /**
  * Helpers for RemNote's pane layout.
  *
- * `getCurrentWindowTree()` returns a mosaic of `{ remId, paneId }` leaves, while
- * `setRemWindowTree()` expects the same mosaic with plain remId strings as
- * leaves - so closing a pane means rebuilding the tree without that leaf.
+ * `getCurrentWindowTree()` returns a mosaic whose leaves are `{ remId, paneId }`.
+ * A *widget* pane has no Rem behind it, so its `remId` is missing - which is why
+ * identifying our pane by remId failed, and is very likely why RemNote logs
+ * "cannot parse window string" when it serialises a layout containing one.
+ *
+ * So panes are identified by `paneId`. Closing still has to hand
+ * `setRemWindowTree()` a tree of remId strings, but that's fine: we only ever
+ * remove the widget leaf, and every surviving leaf is a real Rem pane.
  *
  * Kept outside `src/widgets/` so it doesn't become its own webpack entry.
  */
 
-type MosaicParent = { direction: string; first: any; second: any; splitPercentage?: number };
+export const isLeafNode = (node: any): boolean => {
+  if (typeof node === 'string') return true;
+  if (!node || typeof node !== 'object') return false;
+  return node.first === undefined && node.second === undefined;
+};
 
-const isLeaf = (node: any) => typeof node === 'string' || (node && typeof node.remId === 'string');
+/** Stable identity for a leaf: paneId when present, else remId, else the string itself. */
+export const paneKey = (node: any): string | undefined => {
+  if (typeof node === 'string') return node;
+  if (!node) return undefined;
+  return node.paneId ?? node.remId;
+};
 
-const leafId = (node: any): string => (typeof node === 'string' ? node : node.remId);
-
-/** Every remId in the tree, in order. */
-export const collectRemIds = (node: any, out: string[] = []): string[] => {
+/** Every pane key in the tree, in order. */
+export const collectPaneKeys = (node: any, out: string[] = []): string[] => {
   if (!node) return out;
-  if (isLeaf(node)) {
-    out.push(leafId(node));
+  if (isLeafNode(node)) {
+    const k = paneKey(node);
+    if (k) out.push(k);
     return out;
   }
-  collectRemIds(node.first, out);
-  collectRemIds(node.second, out);
+  collectPaneKeys(node.first, out);
+  collectPaneKeys(node.second, out);
   return out;
 };
 
 /**
- * Rebuild the tree without `id`, collapsing any parent left with a single
- * child. Returns undefined if removing `id` would empty the tree, which the
- * caller must treat as "refuse to close" - RemNote needs at least one pane.
+ * Rebuild the tree without the leaf whose pane key is `key`, collapsing any
+ * parent left with one child. Leaves are returned untouched, so the result
+ * still needs `toRemIdTree`. Returns undefined if the tree would be emptied.
  */
-export const removeRemId = (node: any, id: string): any => {
+export const removePane = (node: any, key: string): any => {
   if (!node) return undefined;
-  if (isLeaf(node)) return leafId(node) === id ? undefined : leafId(node);
+  if (isLeafNode(node)) return paneKey(node) === key ? undefined : node;
 
-  const first = removeRemId(node.first, id);
-  const second = removeRemId(node.second, id);
+  const first = removePane(node.first, key);
+  const second = removePane(node.second, key);
   if (!first) return second;
   if (!second) return first;
-  return { ...(node as MosaicParent), first, second };
+  return { ...node, first, second };
+};
+
+/**
+ * Convert a tree of `{ remId, paneId }` leaves into the remId-string tree
+ * `setRemWindowTree` expects. Returns undefined if any leaf has no remId -
+ * meaning another widget pane is open and the layout can't be expressed.
+ */
+export const toRemIdTree = (node: any): any => {
+  if (!node) return undefined;
+  if (isLeafNode(node)) {
+    if (typeof node === 'string') return node;
+    return typeof node.remId === 'string' && node.remId ? node.remId : undefined;
+  }
+  const first = toRemIdTree(node.first);
+  const second = toRemIdTree(node.second);
+  if (!first || !second) return undefined;
+  return { ...node, first, second };
 };
