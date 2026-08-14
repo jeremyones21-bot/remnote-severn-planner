@@ -1,5 +1,6 @@
 import { declareIndexPlugin, type ReactRNPlugin, WidgetLocation } from '@remnote/plugin-sdk';
 import { DEFAULT_PLANNER_URL, PANE_WIDGET, PLANNER_URL_SETTING, TAB_ICON } from '../constants';
+import { collectRemIds, removeRemId } from '../window_tree';
 
 const describe = (e: unknown) =>
   e instanceof Error ? e.message : typeof e === 'string' ? e : JSON.stringify(e);
@@ -31,17 +32,43 @@ async function onActivate(plugin: ReactRNPlugin) {
   // `registerSidebarButton` is marked @hidden in the SDK and its runtime only
   // forwards { id, name } - no icon, no shortcut - so RemNote may render it
   // plainly or ignore it outright. It costs nothing if unsupported.
+  // Remembers which pane holds the planner so a second click can close it.
+  // A widget pane has no RemId of its own, so it's identified by diffing the
+  // pane layout either side of the open.
+  let plannerPaneId: string | undefined;
+
+  const toggle = async () => {
+    try {
+      const before = await plugin.window.getCurrentWindowTree();
+      const beforeIds = collectRemIds(before);
+
+      if (plannerPaneId && beforeIds.includes(plannerPaneId)) {
+        const remaining = removeRemId(before, plannerPaneId);
+        // RemNote needs at least one pane, so refuse rather than empty it.
+        if (!remaining) {
+          await plugin.app.toast('Assignments is the only open pane, so it stays open.');
+          return;
+        }
+        await plugin.window.setRemWindowTree(remaining);
+        plannerPaneId = undefined;
+        return;
+      }
+
+      await plugin.window.openWidgetInPane(PANE_WIDGET);
+
+      // Whatever leaf appeared is the planner's pane.
+      const afterIds = collectRemIds(await plugin.window.getCurrentWindowTree());
+      plannerPaneId = afterIds.find((id) => !beforeIds.includes(id));
+    } catch (e) {
+      await plugin.app.toast('Assignments: ' + describe(e));
+    }
+  };
+
   try {
     await plugin.app.registerSidebarButton({
       id: 'assignments-sidebar-button',
       name: 'Assignments',
-      action: async () => {
-        try {
-          await plugin.window.openWidgetInPane(PANE_WIDGET);
-        } catch (e) {
-          await plugin.app.toast('Assignments: could not open - ' + describe(e));
-        }
-      },
+      action: toggle,
     });
   } catch (e) {
     await plugin.app.toast('Assignments: sidebar button unsupported - ' + describe(e));
@@ -52,14 +79,8 @@ async function onActivate(plugin: ReactRNPlugin) {
   await plugin.app.registerCommand({
     id: 'open-assignments',
     name: 'Open Assignments',
-    description: 'Open the Severn Planner inside RemNote',
-    action: async () => {
-      try {
-        await plugin.window.openWidgetInPane(PANE_WIDGET);
-      } catch (e) {
-        await plugin.app.toast('Assignments: could not open - ' + describe(e));
-      }
-    },
+    description: 'Open or close the Severn Planner inside RemNote',
+    action: toggle,
   });
 }
 
