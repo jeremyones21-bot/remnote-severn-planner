@@ -38,6 +38,27 @@ async function onActivate(plugin: ReactRNPlugin) {
     await plugin.app.toast('Assignments: pane failed to register - ' + describe(e));
   }
 
+  // A sidebar *button* rather than a tab: it runs an action on click instead of
+  // taking over the sidebar body, so there's no document tree to switch back to.
+  // `registerSidebarButton` is marked @hidden in the SDK and its runtime only
+  // forwards { id, name } - no icon, no shortcut - so RemNote may render it
+  // plainly or ignore it outright. It costs nothing if unsupported.
+  try {
+    await plugin.app.registerSidebarButton({
+      id: 'assignments-sidebar-button',
+      name: 'Assignments',
+      action: async () => {
+        try {
+          await plugin.window.openWidgetInPane(PANE_WIDGET);
+        } catch (e) {
+          await plugin.app.toast('Assignments: could not open - ' + describe(e));
+        }
+      },
+    });
+  } catch (e) {
+    await plugin.app.toast('Assignments: sidebar button unsupported - ' + describe(e));
+  }
+
   // Confirmed working via the command palette, so it stays as the reliable
   // path and as something to bind a shortcut to.
   await plugin.app.registerCommand({
