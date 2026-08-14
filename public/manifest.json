@@ -1,7 +1,7 @@
 {
   "manifestVersion": 1,
   "id": "severn-planner",
-  "name": "Severn Planner",
+  "name": "Assignments",
   "author": "jeremyjones",
   "repoUrl": "https://github.com/jeremyjones/remnote-severn-planner",
   "version": {
@@ -11,7 +11,7 @@
   },
   "theme": [],
   "enableOnMobile": true,
-  "description": "Adds an Assignments entry to the sidebar that opens the Severn Planner app inside RemNote.",
+  "description": "Opens the Severn Planner app inside RemNote from an Assignments entry in the sidebar.",
   "requestNative": false,
   "requiredScopes": [
     {
