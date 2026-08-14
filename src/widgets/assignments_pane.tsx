@@ -14,13 +14,11 @@ const useFullHeightDocument = () => {
       nodes.push(el);
       el = el.firstElementChild as HTMLElement | null;
     }
-    const previous = nodes.map((n) => n.style.cssText);
     nodes.forEach((n) => {
       n.style.height = '100%';
       n.style.margin = '0';
       n.style.padding = '0';
     });
-    return () => nodes.forEach((n, i) => (n.style.cssText = previous[i]));
   }, []);
 };
 
@@ -29,7 +27,10 @@ export const AssignmentsFrame = ({ url }: { url: string }) => (
     src={url}
     title="Severn Planner"
     allow="clipboard-read; clipboard-write; fullscreen"
-    style={{ display: 'block', width: '100%', height: '100%', border: 0 }}
+    // The widget registers with height: 'auto' (RemNote rejects a percentage
+    // height), so the iframe sets its own. `minHeight` keeps it usable if
+    // RemNote's content-based auto-sizing measures the frame short.
+    style={{ display: 'block', width: '100%', height: '100vh', minHeight: 600, border: 0 }}
   />
 );
 
@@ -42,7 +43,7 @@ export const AssignmentsPane = () => {
   // `undefined` means the setting hasn't resolved yet; rendering the default
   // first would load the iframe twice.
   if (url === undefined) {
-    return <div style={{ width: '100%', height: '100%' }} />;
+    return <div style={{ width: '100%', height: '100vh' }} />;
   }
 
   return <AssignmentsFrame url={url || DEFAULT_PLANNER_URL} />;

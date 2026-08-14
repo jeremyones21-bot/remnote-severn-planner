@@ -1,9 +1,10 @@
 import { declareIndexPlugin, type ReactRNPlugin, WidgetLocation } from '@remnote/plugin-sdk';
 import { DEFAULT_PLANNER_URL, PANE_WIDGET, PLANNER_URL_SETTING } from '../constants';
 
+const describe = (e: unknown) =>
+  e instanceof Error ? e.message : typeof e === 'string' ? e : JSON.stringify(e);
+
 async function onActivate(plugin: ReactRNPlugin) {
-  // Lets you point the plugin at a different deployment (or a local dev build)
-  // without rebuilding it.
   await plugin.settings.registerStringSetting({
     id: PLANNER_URL_SETTING,
     title: 'Assignments URL',
@@ -12,36 +13,48 @@ async function onActivate(plugin: ReactRNPlugin) {
   });
 
   // The "Assignments" row itself.
-  await plugin.app.registerWidget('assignments_sidebar', WidgetLocation.LeftSidebar, {
-    dimensions: { height: 'auto', width: '100%' },
-  });
+  try {
+    await plugin.app.registerWidget('assignments_sidebar', WidgetLocation.LeftSidebar, {
+      dimensions: { height: 'auto', width: '100%' },
+    });
+  } catch (e) {
+    await plugin.app.toast('Assignments: sidebar row failed to register - ' + describe(e));
+  }
 
   // The full-size view that the row opens.
-  await plugin.app.registerWidget(PANE_WIDGET, WidgetLocation.Pane, {
-    dimensions: { height: '100%', width: '100%' } as any,
-    widgetTabTitle: 'Assignments',
-  });
+  //
+  // `height` must be a number or 'auto'. A percentage is valid for `width`
+  // only; passing height: '100%' makes registration fail, and a pane widget
+  // that never registered means openWidgetInPane silently does nothing.
+  try {
+    await plugin.app.registerWidget(PANE_WIDGET, WidgetLocation.Pane, {
+      dimensions: { height: 'auto', width: '100%' },
+      widgetTabTitle: 'Assignments',
+    });
+  } catch (e) {
+    await plugin.app.toast('Assignments: pane failed to register - ' + describe(e));
+  }
 
   await plugin.app.registerCommand({
     id: 'open-assignments',
     name: 'Open Assignments',
     description: 'Open the Severn Planner inside RemNote',
     action: async () => {
-      await plugin.window.openWidgetInPane(PANE_WIDGET);
+      try {
+        await plugin.window.openWidgetInPane(PANE_WIDGET);
+      } catch (e) {
+        await plugin.app.toast('Assignments: could not open - ' + describe(e));
+      }
     },
   });
 
-  // RemNote drops every plugin into one fixed slot in the left sidebar, with no
-  // API to pick an index. If RemNote happens to lay the plugin row out in the
-  // same flex container as the built-in rows, a negative `order` lifts it above
-  // them; the `:has()` rules cover the case where it sits inside a wrapper. If
-  // RemNote renders plugins in a separate container further down the sidebar,
-  // none of this can move it and the row stays where RemNote puts it.
+  // RemNote gives plugins one fixed sidebar slot with no API to pick an index,
+  // and appears to render plugin rows in a container separate from the built-in
+  // ones - so this may well not move anything. It is harmless if it doesn't.
   await plugin.app.registerCSS(
     'assignments-sidebar-order',
     `
     [data-plugin-id='severn-planner'],
-    [data-plugin-id='severn-planner-assignments_sidebar'],
     *:has(> [data-plugin-id='severn-planner']),
     *:has(> * > [data-plugin-id='severn-planner']) {
       order: -1;

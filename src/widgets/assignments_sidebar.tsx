@@ -5,7 +5,7 @@ import { PANE_WIDGET } from '../constants';
 /**
  * Every style here is inline and every SVG dimension is an attribute, on
  * purpose. The production build extracts CSS to a separate `[name].css` file,
- * but the template's HTML shim only ever injects `[name].js` — so an installed
+ * but the template's HTML shim only ever injects `[name].js` - so an installed
  * build loads no stylesheet at all. Anything that depends on a CSS file renders
  * unstyled in the real plugin (giant icon, collapsed row, dead click target).
  */
@@ -63,9 +63,29 @@ export const AssignmentsRow = ({ onClick }: { onClick: () => void }) => {
   );
 };
 
+const describe = (e: unknown) =>
+  e instanceof Error ? e.message : typeof e === 'string' ? e : JSON.stringify(e);
+
 export const AssignmentsSidebar = () => {
   const plugin = usePlugin();
-  return <AssignmentsRow onClick={() => plugin.window.openWidgetInPane(PANE_WIDGET)} />;
+
+  const open = async () => {
+    // Proves the click reached the widget at all. If no toast appears, the
+    // problem is the row/iframe, not the pane API.
+    await plugin.app.toast('Opening Assignments...');
+    try {
+      await plugin.window.openWidgetInPane(PANE_WIDGET);
+    } catch (e) {
+      await plugin.app.toast('Pane failed (' + describe(e) + ') - trying right sidebar');
+      try {
+        await plugin.window.openWidgetInRightSidebar(PANE_WIDGET);
+      } catch (e2) {
+        await plugin.app.toast('Right sidebar failed too - ' + describe(e2));
+      }
+    }
+  };
+
+  return <AssignmentsRow onClick={open} />;
 };
 
 renderWidget(AssignmentsSidebar);
