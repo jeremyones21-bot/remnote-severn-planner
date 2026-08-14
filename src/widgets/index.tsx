@@ -21,9 +21,8 @@ async function onActivate(plugin: ReactRNPlugin) {
       dimensions: { height: 'auto', width: '100%' },
       widgetTabTitle: 'Assignments',
       widgetTabIcon: TAB_ICON,
-      // Without this the tab opens on every launch, which would pop the
-      // planner open each time RemNote starts.
-      dontOpenByDefaultInTabLocation: true,
+      // NOTE: `dontOpenByDefaultInTabLocation: true` removes the entry from the
+      // sidebar entirely, rather than merely leaving it closed. Don't re-add it.
     });
   } catch (e) {
     await plugin.app.toast('Assignments: sidebar entry failed to register - ' + describe(e));
