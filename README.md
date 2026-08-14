@@ -28,13 +28,21 @@ assignments and notes live in the same window.
 `Open Assignments` — opens the planner in the focused pane, so it can be bound to a
 shortcut or run from the command palette.
 
-## Layout note
+## How the sidebar entry behaves
 
-RemNote gives every plugin a single fixed slot in the left sidebar; there's no API to
-insert a row at a chosen index. The plugin ships a `registerCSS` rule setting
-`order: -1` on its sidebar container, which pulls **Assignments** above the built-in
-rows. If a future RemNote release changes the sidebar's layout, that rule is the one
-thing to adjust — see `src/widgets/index.tsx`.
+`WidgetLocation.LeftSidebar` is a **tab strip**, not a slot for a row. RemNote draws the
+tab itself from `widgetTabTitle` / `widgetTabIcon` and mounts the widget only when that
+tab is selected — selecting it swaps the sidebar body away from the document tree, and
+swapping back restores it.
+
+Consequences worth knowing before changing any of this:
+
+- The entry **cannot** be placed above Flashcards. Plugin tabs live in their own strip.
+- Registering without `widgetTabTitle` / `widgetTabIcon` yields an unlabelled default
+  icon, and the widget's React never mounts until the tab is opened — so click handlers
+  appear dead and no error surfaces anywhere.
+- `dontOpenByDefaultInTabLocation: true` removes the entry from the sidebar **entirely**
+  rather than leaving it closed. Don't set it.
 
 ## Project layout
 
