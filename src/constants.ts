@@ -1,6 +1,9 @@
 // Kept out of `src/widgets/` so importing it doesn't pull `declareIndexPlugin`
 // into the other widget bundles.
 export const PLANNER_URL_SETTING = 'planner-url';
+export const OPEN_IN_SETTING = 'open-in';
+export const OPEN_IN_PANE = 'pane';
+export const OPEN_IN_FLOATING = 'floating';
 export const DEFAULT_PLANNER_URL = 'https://severnplanner.edgeone.app';
 export const PANE_WIDGET = 'assignments_pane';
 

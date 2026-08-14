@@ -1,5 +1,13 @@
 import { declareIndexPlugin, type ReactRNPlugin, WidgetLocation } from '@remnote/plugin-sdk';
-import { DEFAULT_PLANNER_URL, PANE_WIDGET, PLANNER_URL_SETTING, TAB_ICON } from '../constants';
+import {
+  DEFAULT_PLANNER_URL,
+  OPEN_IN_FLOATING,
+  OPEN_IN_PANE,
+  OPEN_IN_SETTING,
+  PANE_WIDGET,
+  PLANNER_URL_SETTING,
+  TAB_ICON,
+} from '../constants';
 import { collectPaneKeys, removePane, toRemIdTree } from '../window_tree';
 
 const describe = (e: unknown) =>
@@ -11,6 +19,23 @@ async function onActivate(plugin: ReactRNPlugin) {
     title: 'Assignments URL',
     description: 'The site loaded inside the Assignments pane.',
     defaultValue: DEFAULT_PLANNER_URL,
+  });
+
+  // RemNote persists the pane layout as a string, and a widget pane has no
+  // RemId to encode into it - which is what makes RemNote log "cannot parse
+  // window string" on every open. That's RemNote's own serialiser and a plugin
+  // can't suppress it, so this offers a mode that never touches the pane
+  // layout at all.
+  await plugin.settings.registerDropdownSetting({
+    id: OPEN_IN_SETTING,
+    title: 'Open Assignments in',
+    description:
+      'A floating window avoids RemNote\'s "cannot parse window string" errors, which only occur for panes.',
+    defaultValue: OPEN_IN_PANE,
+    options: [
+      { key: OPEN_IN_PANE, label: 'Pane (full size, logs errors)', value: OPEN_IN_PANE },
+      { key: OPEN_IN_FLOATING, label: 'Floating window (no errors)', value: OPEN_IN_FLOATING },
+    ],
   });
 
   // No WidgetLocation.LeftSidebar widget here on purpose. That location is a
@@ -27,6 +52,17 @@ async function onActivate(plugin: ReactRNPlugin) {
     await plugin.app.toast('Assignments: pane failed to register - ' + describe(e));
   }
 
+  // Same widget file, second location - floating widgets live outside the pane
+  // layout, so opening one never triggers the window-string serialisation.
+  try {
+    await plugin.app.registerWidget(PANE_WIDGET, WidgetLocation.FloatingWidget, {
+      dimensions: { height: 640, width: 980 },
+      widgetTabTitle: 'Assignments',
+    });
+  } catch (e) {
+    await plugin.app.toast('Assignments: floating window failed to register - ' + describe(e));
+  }
+
   // A sidebar *button* rather than a tab: it runs an action on click instead of
   // taking over the sidebar body, so there's no document tree to switch back to.
   // `registerSidebarButton` is marked @hidden in the SDK and its runtime only
@@ -36,9 +72,25 @@ async function onActivate(plugin: ReactRNPlugin) {
   // Widget panes have no remId, so panes are keyed by paneId and the planner's
   // is found by diffing the layout either side of the open.
   let plannerPaneKey: string | undefined;
+  let floatingId: string | undefined;
+
+  const toggleFloating = async () => {
+    if (floatingId && (await plugin.window.isFloatingWidgetOpen(floatingId))) {
+      await plugin.window.closeFloatingWidget(floatingId);
+      floatingId = undefined;
+      return;
+    }
+    floatingId = await plugin.window.openFloatingWidget(PANE_WIDGET, { top: 64, left: 180 });
+  };
 
   const toggle = async () => {
     try {
+      const mode = await plugin.settings.getSetting<string>(OPEN_IN_SETTING);
+      if (mode === OPEN_IN_FLOATING) {
+        await toggleFloating();
+        return;
+      }
+
       const before = await plugin.window.getCurrentWindowTree();
       const beforeKeys = collectPaneKeys(before);
 

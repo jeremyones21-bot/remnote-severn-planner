@@ -21,7 +21,21 @@ assignments and notes live in the same window.
 
 | Setting | Default | Purpose |
 | --- | --- | --- |
-| Severn Planner URL | `https://severnplanner.edgeone.app` | The site loaded in the pane. Point it at a local dev build to test changes. |
+| Assignments URL | `https://severnplanner.edgeone.app` | The site loaded in the pane. Point it at a local dev build to test changes. |
+| Open Assignments in | Pane | `Pane` is full size; `Floating window` avoids the error below. |
+
+## The "cannot parse window string" error
+
+RemNote logs this every time the planner opens **in a pane**. The string appears nowhere
+in the plugin SDK — it comes from RemNote's own code. The cause is visible in the pane
+layout: `getCurrentWindowTree()` returns `{ remId, paneId }` leaves, and a *widget* pane
+has no Rem behind it, so it has no `remId` to encode when RemNote serialises the layout
+to a string (the format `setCurrentWindowTreeFromString` consumes). The same missing
+`remId` is why an early version of the toggle silently opened a second planner.
+
+A plugin can't suppress errors raised by RemNote's own serialiser. The workaround is to
+avoid panes: set **Open Assignments in → Floating window**, which uses
+`openFloatingWidget` and never touches the pane layout.
 
 ## Commands
 
