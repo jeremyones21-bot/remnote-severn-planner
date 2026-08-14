@@ -12,22 +12,10 @@ async function onActivate(plugin: ReactRNPlugin) {
     defaultValue: DEFAULT_PLANNER_URL,
   });
 
-  // LeftSidebar is a *tab* location: RemNote draws the entry itself from
-  // `widgetTabTitle` / `widgetTabIcon`, and only mounts the widget's React
-  // once the tab is opened. Supplying neither is what produced an unlabelled
-  // placeholder icon that appeared to do nothing when clicked.
-  try {
-    await plugin.app.registerWidget('assignments_sidebar', WidgetLocation.LeftSidebar, {
-      dimensions: { height: 'auto', width: '100%' },
-      widgetTabTitle: 'Assignments',
-      widgetTabIcon: TAB_ICON,
-      // NOTE: `dontOpenByDefaultInTabLocation: true` removes the entry from the
-      // sidebar entirely, rather than merely leaving it closed. Don't re-add it.
-    });
-  } catch (e) {
-    await plugin.app.toast('Assignments: sidebar entry failed to register - ' + describe(e));
-  }
-
+  // No WidgetLocation.LeftSidebar widget here on purpose. That location is a
+  // tab strip: selecting it swaps the sidebar body away from the document tree,
+  // which is worse than the sidebar button below and can't be switched back
+  // (there is no API to select a sidebar tab). See the README.
   try {
     await plugin.app.registerWidget(PANE_WIDGET, WidgetLocation.Pane, {
       dimensions: { height: 'auto', width: '100%' },

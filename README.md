@@ -28,21 +28,35 @@ assignments and notes live in the same window.
 `Open Assignments` — opens the planner in the focused pane, so it can be bound to a
 shortcut or run from the command palette.
 
-## How the sidebar entry behaves
+## How the sidebar entry works
 
-`WidgetLocation.LeftSidebar` is a **tab strip**, not a slot for a row. RemNote draws the
-tab itself from `widgetTabTitle` / `widgetTabIcon` and mounts the widget only when that
-tab is selected — selecting it swaps the sidebar body away from the document tree, and
-swapping back restores it.
+The **Assignments** row comes from `plugin.app.registerSidebarButton`, which puts a real
+row in the main sidebar list (below Flashcards, above Create) that runs an action on
+click. This is the right tool for the job — but note it's marked `@hidden` in the SDK,
+so it's undocumented and could change in a future release.
 
-Consequences worth knowing before changing any of this:
+Its runtime sends only `{ id, name }`:
 
-- The entry **cannot** be placed above Flashcards. Plugin tabs live in their own strip.
+```js
+registerSidebarButton: n => { const {id, name, action} = n; ...; this._call("registerSidebarButton", {id, name}) }
+```
+
+So **the `icon` field on `Command` is dropped client-side and never reaches RemNote.**
+The row always shows RemNote's generic plugin puzzle icon; there is no supported way to
+change it from inside the plugin.
+
+### Why not `WidgetLocation.LeftSidebar`
+
+That location is a **tab strip**, not a slot for a row, and it was tried first. RemNote
+draws the tab from `widgetTabTitle` / `widgetTabIcon` and mounts the widget only once the
+tab is selected — which swaps the sidebar body away from the document tree, with no API
+to switch it back. Traps found along the way, if anyone revisits it:
+
 - Registering without `widgetTabTitle` / `widgetTabIcon` yields an unlabelled default
   icon, and the widget's React never mounts until the tab is opened — so click handlers
   appear dead and no error surfaces anywhere.
 - `dontOpenByDefaultInTabLocation: true` removes the entry from the sidebar **entirely**
-  rather than leaving it closed. Don't set it.
+  rather than leaving it closed.
 
 ## Project layout
 
