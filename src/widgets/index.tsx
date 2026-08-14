@@ -1,5 +1,5 @@
 import { declareIndexPlugin, type ReactRNPlugin, WidgetLocation } from '@remnote/plugin-sdk';
-import { DEFAULT_PLANNER_URL, PANE_WIDGET, PLANNER_URL_SETTING } from '../constants';
+import { DEFAULT_PLANNER_URL, PANE_WIDGET, PLANNER_URL_SETTING, TAB_ICON } from '../constants';
 
 const describe = (e: unknown) =>
   e instanceof Error ? e.message : typeof e === 'string' ? e : JSON.stringify(e);
@@ -12,29 +12,35 @@ async function onActivate(plugin: ReactRNPlugin) {
     defaultValue: DEFAULT_PLANNER_URL,
   });
 
-  // The "Assignments" row itself.
+  // LeftSidebar is a *tab* location: RemNote draws the entry itself from
+  // `widgetTabTitle` / `widgetTabIcon`, and only mounts the widget's React
+  // once the tab is opened. Supplying neither is what produced an unlabelled
+  // placeholder icon that appeared to do nothing when clicked.
   try {
     await plugin.app.registerWidget('assignments_sidebar', WidgetLocation.LeftSidebar, {
       dimensions: { height: 'auto', width: '100%' },
+      widgetTabTitle: 'Assignments',
+      widgetTabIcon: TAB_ICON,
+      // Without this the tab opens on every launch, which would pop the
+      // planner open each time RemNote starts.
+      dontOpenByDefaultInTabLocation: true,
     });
   } catch (e) {
-    await plugin.app.toast('Assignments: sidebar row failed to register - ' + describe(e));
+    await plugin.app.toast('Assignments: sidebar entry failed to register - ' + describe(e));
   }
 
-  // The full-size view that the row opens.
-  //
-  // `height` must be a number or 'auto'. A percentage is valid for `width`
-  // only; passing height: '100%' makes registration fail, and a pane widget
-  // that never registered means openWidgetInPane silently does nothing.
   try {
     await plugin.app.registerWidget(PANE_WIDGET, WidgetLocation.Pane, {
       dimensions: { height: 'auto', width: '100%' },
       widgetTabTitle: 'Assignments',
+      widgetTabIcon: TAB_ICON,
     });
   } catch (e) {
     await plugin.app.toast('Assignments: pane failed to register - ' + describe(e));
   }
 
+  // Confirmed working via the command palette, so it stays as the reliable
+  // path and as something to bind a shortcut to.
   await plugin.app.registerCommand({
     id: 'open-assignments',
     name: 'Open Assignments',
@@ -47,20 +53,6 @@ async function onActivate(plugin: ReactRNPlugin) {
       }
     },
   });
-
-  // RemNote gives plugins one fixed sidebar slot with no API to pick an index,
-  // and appears to render plugin rows in a container separate from the built-in
-  // ones - so this may well not move anything. It is harmless if it doesn't.
-  await plugin.app.registerCSS(
-    'assignments-sidebar-order',
-    `
-    [data-plugin-id='severn-planner'],
-    *:has(> [data-plugin-id='severn-planner']),
-    *:has(> * > [data-plugin-id='severn-planner']) {
-      order: -1;
-    }
-    `
-  );
 }
 
 async function onDeactivate(_: ReactRNPlugin) {}
