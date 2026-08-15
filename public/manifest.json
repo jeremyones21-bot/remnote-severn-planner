@@ -2,8 +2,8 @@
   "manifestVersion": 1,
   "id": "severn-planner",
   "name": "Assignments",
-  "author": "jeremyjones",
-  "repoUrl": "https://github.com/remnoteio/remnote-plugin-template-react",
+  "author": "jeremyones21-bot",
+  "repoUrl": "https://github.com/jeremyones21-bot/remnote-severn-planner",
   "version": {
     "major": 0,
     "minor": 0,
