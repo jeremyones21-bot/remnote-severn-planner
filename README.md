@@ -9,8 +9,12 @@ assignments and notes live in the same window.
 **From a build**
 
 1. `npm install`
-2. `npm run build` — produces `PluginZip.zip`
-3. RemNote → Settings → Plugins → **Build** → upload the zip
+2. Bump `version` in `public/manifest.json` — RemNote rejects an upload whose version
+   isn't higher than the installed one, and it appears to bump the installed version
+   itself on each upload, so this is needed on *every* rebuild you intend to install.
+3. `rm -f PluginZip.zip && npm run build` — the `rm` matters, `bestzip` updates an
+   existing archive instead of replacing it and leaves deleted files behind
+4. RemNote → Settings → Plugins → **Build** → upload the zip
 
 **For development**
 

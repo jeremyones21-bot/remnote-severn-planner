@@ -5,9 +5,9 @@
   "author": "jeremyones21-bot",
   "repoUrl": "https://github.com/jeremyones21-bot/remnote-severn-planner",
   "version": {
-    "major": 0,
+    "major": 1,
     "minor": 0,
-    "patch": 1
+    "patch": 0
   },
   "theme": [],
   "enableOnMobile": true,
