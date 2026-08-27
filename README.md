@@ -27,7 +27,7 @@ assignments and notes live in the same window.
 | --- | --- | --- |
 | Assignments URL | `https://severnplanner.edgeone.app` | The site loaded in the pane. Point it at a local dev build to test changes. |
 | Open Assignments in | Pane | `Pane` is full size; `Floating window` avoids the error below. |
-| Split: percent given to the other pane | 53 | Width the document keeps when Assignments opens beside it, leaving the planner 47%. |
+| Split: percent given to the other pane | 55 | Width the document keeps when Assignments opens beside it, leaving the planner 45%. |
 
 ## The "cannot parse window string" error
 

@@ -44,7 +44,7 @@ async function onActivate(plugin: ReactRNPlugin) {
     id: SPLIT_SETTING,
     title: 'Split: percent given to the other pane',
     description:
-      'When Assignments opens beside a document, how much width the document keeps. 53 leaves the planner 47%.',
+      'When Assignments opens beside a document, how much width the document keeps. 55 leaves the planner 45%.',
     defaultValue: DEFAULT_SPLIT,
   });
 
