@@ -144,7 +144,32 @@ async function onActivate(plugin: ReactRNPlugin) {
       } catch (e) {
         paneRemId = 'threw: ' + describe(e);
       }
-      await diag(plugin, 'applySplit', { key, pct, paneRemId, tree, withSplit, next });
+      // The window string RemNote fails to parse looks like
+      //   (<remId>)_(widget~<widgetId>)_<split>
+      // If that widget id is reachable, the split can be written as a string
+      // even though setRemWindowTree can't express a widget pane.
+      let url: unknown = '(not queried)';
+      try {
+        url = await plugin.window.getURL();
+      } catch (e) {
+        url = 'threw: ' + describe(e);
+      }
+      let openPaneRemIds: unknown = '(not queried)';
+      try {
+        openPaneRemIds = await plugin.window.getOpenPaneRemIds();
+      } catch (e) {
+        openPaneRemIds = 'threw: ' + describe(e);
+      }
+      await diag(plugin, 'applySplit', {
+        key,
+        pct,
+        paneRemId,
+        url,
+        openPaneRemIds,
+        tree,
+        withSplit,
+        next,
+      });
       if (!next) return;
       await plugin.window.setRemWindowTree(next);
       await diag(plugin, 'afterWrite', await plugin.window.getCurrentWindowTree());
