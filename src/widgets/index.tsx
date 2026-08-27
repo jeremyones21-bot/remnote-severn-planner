@@ -138,7 +138,13 @@ async function onActivate(plugin: ReactRNPlugin) {
       const tree = await plugin.window.getCurrentWindowTree();
       const withSplit = setSplitForPane(tree, key, pct);
       const next = toRemIdTree(withSplit);
-      await diag(plugin, 'applySplit', { key, pct, tree, withSplit, next });
+      let paneRemId: unknown = '(not queried)';
+      try {
+        paneRemId = await plugin.window.getOpenPaneRemId(key);
+      } catch (e) {
+        paneRemId = 'threw: ' + describe(e);
+      }
+      await diag(plugin, 'applySplit', { key, pct, paneRemId, tree, withSplit, next });
       if (!next) return;
       await plugin.window.setRemWindowTree(next);
       await diag(plugin, 'afterWrite', await plugin.window.getCurrentWindowTree());

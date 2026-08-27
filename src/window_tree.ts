@@ -64,10 +64,11 @@ export const toRemIdTree = (node: any): any => {
   if (!node) return undefined;
   if (isLeafNode(node)) {
     if (typeof node === 'string') return node;
-    // Widget panes carry a synthetic `widget~<id>` rather than a real RemId;
-    // both round-trip through setRemWindowTree, so keep either.
-    const id = node.remId ?? node.paneId;
-    return typeof id === 'string' && id ? id : undefined;
+    // Widget panes have NO remId in the tree - verified against RemNote's own
+    // output. Falling back to paneId is destructive: RemNote reads it as a
+    // RemId and replaces the widget with a pane pointing at a Rem that doesn't
+    // exist. Refuse instead, so the caller skips the write.
+    return typeof node.remId === 'string' && node.remId ? node.remId : undefined;
   }
   const first = toRemIdTree(node.first);
   const second = toRemIdTree(node.second);
