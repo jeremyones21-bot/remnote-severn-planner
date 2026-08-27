@@ -150,6 +150,24 @@ async function onActivate(plugin: ReactRNPlugin) {
       const next = setSplitInWindowUrl(url, pct);
       await diag(plugin, 'applySplit', { pct, url, next });
       if (!next || next === url) return;
+
+      // setURL updates the address but RemNote never re-applies the layout from
+      // it. setCurrentWindowTreeFromString is the API that actually consumes a
+      // window string, so try it first - it takes the string on its own,
+      // without the /w/<kb>/ prefix.
+      const windowString = next.slice(next.lastIndexOf('/') + 1);
+      try {
+        await plugin.window.setCurrentWindowTreeFromString(windowString);
+        await diag(plugin, 'afterFromString', {
+          windowString,
+          url: await plugin.window.getURL(),
+          tree: await plugin.window.getCurrentWindowTree(),
+        });
+        return;
+      } catch (e) {
+        await diag(plugin, 'fromString failed', { windowString, error: describe(e) });
+      }
+
       await plugin.window.setURL(next);
       await diag(plugin, 'afterSetURL', await plugin.window.getURL());
     } catch (e) {
