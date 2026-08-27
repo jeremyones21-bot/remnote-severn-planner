@@ -26,7 +26,7 @@ assignments and notes live in the same window.
 | Setting | Default | Purpose |
 | --- | --- | --- |
 | Assignments URL | `https://severnplanner.edgeone.app` | The site loaded in the pane. Point it at a local dev build to test changes. |
-| Open Assignments in | Pane | `Pane` is full size; `Floating window` avoids the error below. |
+| Open Assignments in | Floating window | `Floating window` avoids the error below; `Pane` is full size but triggers it. |
 
 ## The "cannot parse window string" error
 
@@ -37,9 +37,16 @@ has no Rem behind it, so it has no `remId` to encode when RemNote serialises the
 to a string (the format `setCurrentWindowTreeFromString` consumes). The same missing
 `remId` is why an early version of the toggle silently opened a second planner.
 
-A plugin can't suppress errors raised by RemNote's own serialiser. The workaround is to
-avoid panes: set **Open Assignments in → Floating window**, which uses
-`openFloatingWidget` and never touches the pane layout.
+A plugin can't suppress errors raised by RemNote's own serialiser - there is no API for
+it, and the toast markup belongs to RemNote. The workaround is to avoid panes, so
+**Floating window is the default**: `openFloatingWidget` never touches the pane layout.
+
+### Toggling in pane mode
+
+A matching `paneId` does not mean the planner is still there - **RemNote reuses paneIds**.
+Once the planner pane is gone, a document can occupy that same paneId, and a toggle that
+trusts the id alone will think the planner is open. `getOpenPaneRemId(paneId)` settles it:
+a widget pane has no Rem, so a real remId coming back means the key is stale.
 
 ## Commands
 

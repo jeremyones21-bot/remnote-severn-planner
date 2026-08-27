@@ -31,10 +31,10 @@ async function onActivate(plugin: ReactRNPlugin) {
     title: 'Open Assignments in',
     description:
       'A floating window avoids RemNote\'s "cannot parse window string" errors, which only occur for panes.',
-    defaultValue: OPEN_IN_PANE,
+    defaultValue: OPEN_IN_FLOATING,
     options: [
-      { key: OPEN_IN_PANE, label: 'Pane (full size, logs errors)', value: OPEN_IN_PANE },
-      { key: OPEN_IN_FLOATING, label: 'Floating window (no errors)', value: OPEN_IN_FLOATING },
+      { key: OPEN_IN_PANE, label: 'Pane (full size, but RemNote logs errors)', value: OPEN_IN_PANE },
+      { key: OPEN_IN_FLOATING, label: 'Floating window (default, no errors)', value: OPEN_IN_FLOATING },
     ],
   });
 
@@ -63,15 +63,28 @@ async function onActivate(plugin: ReactRNPlugin) {
     await plugin.app.toast('Assignments: floating window failed to register - ' + describe(e));
   }
 
-  // A sidebar *button* rather than a tab: it runs an action on click instead of
-  // taking over the sidebar body, so there's no document tree to switch back to.
-  // `registerSidebarButton` is marked @hidden in the SDK and its runtime only
-  // forwards { id, name } - no icon, no shortcut - so RemNote may render it
-  // plainly or ignore it outright. It costs nothing if unsupported.
   // Remembers which pane holds the planner so a second click can close it.
   // Widget panes have no remId, so panes are keyed by paneId and the planner's
   // is found by diffing the layout either side of the open.
   let plannerPaneKey: string | undefined;
+
+  /**
+   * Is the planner still in the pane we opened it in?
+   *
+   * A matching paneId is NOT enough: RemNote reuses paneIds, so after the
+   * planner is closed the same pane can hold a document. Asking for that pane's
+   * remId settles it - a widget pane has no Rem behind it, so a real remId
+   * coming back means the planner is gone and the key is stale.
+   */
+  const plannerStillOpenAt = async (key: string) => {
+    try {
+      const remId = await plugin.window.getOpenPaneRemId(key);
+      return !remId;
+    } catch {
+      return false;
+    }
+  };
+
   let floatingId: string | undefined;
 
   const toggleFloating = async () => {
@@ -94,18 +107,22 @@ async function onActivate(plugin: ReactRNPlugin) {
       const before = await plugin.window.getCurrentWindowTree();
       const beforeKeys = collectPaneKeys(before);
 
-      if (plannerPaneKey && beforeKeys.includes(plannerPaneKey)) {
+      const trackedPaneHasPlanner =
+        !!plannerPaneKey &&
+        beforeKeys.includes(plannerPaneKey) &&
+        (await plannerStillOpenAt(plannerPaneKey));
+
+      // Stale key: the pane was closed, or RemNote handed that paneId to a
+      // document. Forget it and fall through to opening the planner again.
+      if (plannerPaneKey && !trackedPaneHasPlanner) plannerPaneKey = undefined;
+
+      if (plannerPaneKey && trackedPaneHasPlanner) {
         const remaining = removePane(before, plannerPaneKey);
-        // RemNote needs at least one pane, so refuse rather than empty it.
-        if (!remaining) {
-          await plugin.app.toast('Assignments is the only open pane, so it stays open.');
-          return;
-        }
-        const tree = toRemIdTree(remaining);
-        if (!tree) {
-          await plugin.app.toast("Assignments: can't close - another widget pane is open.");
-          return;
-        }
+        const tree = remaining ? toRemIdTree(remaining) : undefined;
+        // Closing isn't expressible (planner is the only pane, or another
+        // widget pane is open). Leave the layout alone and say nothing - this
+        // is a limitation, not something the user did wrong.
+        if (!tree) return;
         await plugin.window.setRemWindowTree(tree);
         plannerPaneKey = undefined;
         return;
@@ -121,6 +138,10 @@ async function onActivate(plugin: ReactRNPlugin) {
     }
   };
 
+  // A sidebar *button* rather than a tab: it runs an action on click instead of
+  // taking over the sidebar body, so there's no document tree to switch back to.
+  // `registerSidebarButton` is marked @hidden in the SDK and its runtime only
+  // forwards { id, name } - no icon, no shortcut.
   try {
     await plugin.app.registerSidebarButton({
       id: 'assignments-sidebar-button',
