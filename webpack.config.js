@@ -118,7 +118,27 @@ if (isProd) {
     watchFiles: ['src/*'],
     headers: {
       'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Headers': 'baggage, sentry-trace',
+      'Access-Control-Allow-Headers': 'baggage, sentry-trace, content-type',
+    },
+    // Dev-only diagnostics sink. The plugin runs inside a sandboxed iframe in
+    // RemNote, so there's no console to read; POSTing here puts the real data
+    // in the dev-server log instead of guessing at RemNote's internals.
+    setupMiddlewares: (middlewares, devServer) => {
+      devServer.app.post('/__diag', (req, res) => {
+        let body = '';
+        req.on('data', (c) => (body += c));
+        req.on('end', () => {
+          console.log('\n[DIAG] ' + body + '\n');
+          res.setHeader('Access-Control-Allow-Origin', '*');
+          res.end('ok');
+        });
+      });
+      devServer.app.options('/__diag', (_req, res) => {
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Headers', 'content-type');
+        res.end();
+      });
+      return middlewares;
     },
   };
 }

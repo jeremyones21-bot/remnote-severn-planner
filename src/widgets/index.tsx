@@ -12,6 +12,26 @@ import {
 } from '../constants';
 import { collectPaneKeys, removePane, setSplitForPane, toRemIdTree } from '../window_tree';
 
+/**
+ * Dev-only: ship real data to the dev-server log. The plugin runs in a sandboxed
+ * iframe inside RemNote with no reachable console, and toasts truncate JSON, so
+ * this is the only way to see what RemNote actually returns. No-ops for an
+ * installed build, which isn't served from localhost.
+ */
+const diag = async (plugin: ReactRNPlugin, label: string, data: unknown) => {
+  try {
+    const root = (plugin as any).rootURL as string | undefined;
+    if (!root || !root.includes('localhost')) return;
+    await fetch(root.replace(/\/$/, '') + '/__diag', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ label, data }, null, 2),
+    });
+  } catch {
+    /* diagnostics must never break the feature */
+  }
+};
+
 const describe = (e: unknown) =>
   e instanceof Error ? e.message : typeof e === 'string' ? e : JSON.stringify(e);
 
@@ -116,10 +136,14 @@ async function onActivate(plugin: ReactRNPlugin) {
     try {
       const pct = (await plugin.settings.getSetting<number>(SPLIT_SETTING)) ?? DEFAULT_SPLIT;
       const tree = await plugin.window.getCurrentWindowTree();
-      const next = toRemIdTree(setSplitForPane(tree, key, pct));
-      if (next) await plugin.window.setRemWindowTree(next);
-    } catch {
-      /* leave the layout as RemNote made it */
+      const withSplit = setSplitForPane(tree, key, pct);
+      const next = toRemIdTree(withSplit);
+      await diag(plugin, 'applySplit', { key, pct, tree, withSplit, next });
+      if (!next) return;
+      await plugin.window.setRemWindowTree(next);
+      await diag(plugin, 'afterWrite', await plugin.window.getCurrentWindowTree());
+    } catch (e) {
+      await diag(plugin, 'applySplit failed', describe(e));
     }
   };
 
