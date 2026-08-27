@@ -27,6 +27,7 @@ assignments and notes live in the same window.
 | --- | --- | --- |
 | Assignments URL | `https://severnplanner.edgeone.app` | The site loaded in the pane. Point it at a local dev build to test changes. |
 | Open Assignments in | Pane | `Pane` is full size; `Floating window` avoids the error below. |
+| Split: percent given to the other pane | 53 | Width the document keeps when Assignments opens beside it, leaving the planner 47%. |
 
 ## The "cannot parse window string" error
 
@@ -41,6 +42,22 @@ A plugin can't suppress errors raised by RemNote's own serialiser - there is no 
 it, and the toast markup belongs to RemNote. The only way to avoid it is to avoid panes:
 set **Open Assignments in → Floating window**, which uses `openFloatingWidget` and never
 touches the pane layout. Pane remains the default because it's the better view.
+
+### The window string, and the split
+
+RemNote's error text leaks the format its layout serialiser uses:
+
+```
+Cannot parse window string: (notes~)_(widget~8L6vpwrxdTePMKtMW)_51
+```
+
+Two useful facts: the trailing number is the split percentage, and a widget pane *is*
+identified — as `widget~<id>`, not a real RemId. So `toRemIdTree` must preserve
+`widget~` ids rather than reject them, and the split is settable by writing
+`splitPercentage` back through `setRemWindowTree`.
+
+`setSplitForPane` takes the share for the *other* pane, so callers don't have to know
+which side `openWidgetInPane` put the planner on.
 
 ### Toggling in pane mode
 

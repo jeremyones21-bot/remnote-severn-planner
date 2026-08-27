@@ -5,10 +5,12 @@ import {
   OPEN_IN_PANE,
   OPEN_IN_SETTING,
   PANE_WIDGET,
+  DEFAULT_SPLIT,
+  SPLIT_SETTING,
   PLANNER_URL_SETTING,
   TAB_ICON,
 } from '../constants';
-import { collectPaneKeys, removePane, toRemIdTree } from '../window_tree';
+import { collectPaneKeys, removePane, setSplitForPane, toRemIdTree } from '../window_tree';
 
 const describe = (e: unknown) =>
   e instanceof Error ? e.message : typeof e === 'string' ? e : JSON.stringify(e);
@@ -36,6 +38,14 @@ async function onActivate(plugin: ReactRNPlugin) {
       { key: OPEN_IN_PANE, label: 'Pane (default, full size)', value: OPEN_IN_PANE },
       { key: OPEN_IN_FLOATING, label: 'Floating window (avoids the window-string errors)', value: OPEN_IN_FLOATING },
     ],
+  });
+
+  await plugin.settings.registerNumberSetting({
+    id: SPLIT_SETTING,
+    title: 'Split: percent given to the other pane',
+    description:
+      'When Assignments opens beside a document, how much width the document keeps. 53 leaves the planner 47%.',
+    defaultValue: DEFAULT_SPLIT,
   });
 
   // No WidgetLocation.LeftSidebar widget here on purpose. That location is a
@@ -79,7 +89,9 @@ async function onActivate(plugin: ReactRNPlugin) {
   const plannerStillOpenAt = async (key: string) => {
     try {
       const remId = await plugin.window.getOpenPaneRemId(key);
-      return !remId;
+      // No Rem at all, or RemNote's synthetic `widget~<id>`, both mean the pane
+      // still holds a widget. A real RemId means a document took the paneId over.
+      return !remId || remId.startsWith('widget');
     } catch {
       return false;
     }
@@ -94,6 +106,21 @@ async function onActivate(plugin: ReactRNPlugin) {
       return;
     }
     floatingId = await plugin.window.openFloatingWidget(PANE_WIDGET, { top: 64, left: 180 });
+  };
+
+  /**
+   * Resize the split so the planner takes its configured share. Cosmetic, so
+   * any failure is swallowed rather than nagged about.
+   */
+  const applySplit = async (key: string) => {
+    try {
+      const pct = (await plugin.settings.getSetting<number>(SPLIT_SETTING)) ?? DEFAULT_SPLIT;
+      const tree = await plugin.window.getCurrentWindowTree();
+      const next = toRemIdTree(setSplitForPane(tree, key, pct));
+      if (next) await plugin.window.setRemWindowTree(next);
+    } catch {
+      /* leave the layout as RemNote made it */
+    }
   };
 
   const toggle = async () => {
@@ -133,6 +160,7 @@ async function onActivate(plugin: ReactRNPlugin) {
       // Whatever pane appeared is the planner's.
       const afterKeys = collectPaneKeys(await plugin.window.getCurrentWindowTree());
       plannerPaneKey = afterKeys.find((k) => !beforeKeys.includes(k));
+      if (plannerPaneKey) await applySplit(plannerPaneKey);
     } catch (e) {
       await plugin.app.toast('Assignments: ' + describe(e));
     }

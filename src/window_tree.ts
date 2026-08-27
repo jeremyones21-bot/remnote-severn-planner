@@ -64,10 +64,37 @@ export const toRemIdTree = (node: any): any => {
   if (!node) return undefined;
   if (isLeafNode(node)) {
     if (typeof node === 'string') return node;
-    return typeof node.remId === 'string' && node.remId ? node.remId : undefined;
+    // Widget panes carry a synthetic `widget~<id>` rather than a real RemId;
+    // both round-trip through setRemWindowTree, so keep either.
+    const id = node.remId ?? node.paneId;
+    return typeof id === 'string' && id ? id : undefined;
   }
   const first = toRemIdTree(node.first);
   const second = toRemIdTree(node.second);
   if (!first || !second) return undefined;
   return { ...node, first, second };
+};
+
+/**
+ * Set the split ratio of whichever parent holds the pane keyed `key`.
+ *
+ * `otherPercent` is the share given to the *other* pane, so the caller doesn't
+ * have to care which side the planner landed on. RemNote's window string ends
+ * in this number - e.g. `(notes~)_(widget~ID)_53` - and `splitPercentage` is
+ * always the first child's share.
+ */
+export const setSplitForPane = (node: any, key: string, otherPercent: number): any => {
+  if (!node || isLeafNode(node)) return node;
+
+  if (isLeafNode(node.first) && paneKey(node.first) === key) {
+    return { ...node, splitPercentage: 100 - otherPercent };
+  }
+  if (isLeafNode(node.second) && paneKey(node.second) === key) {
+    return { ...node, splitPercentage: otherPercent };
+  }
+  return {
+    ...node,
+    first: setSplitForPane(node.first, key, otherPercent),
+    second: setSplitForPane(node.second, key, otherPercent),
+  };
 };
