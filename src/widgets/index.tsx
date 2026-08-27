@@ -5,17 +5,10 @@ import {
   OPEN_IN_PANE,
   OPEN_IN_SETTING,
   PANE_WIDGET,
-  DEFAULT_SPLIT,
-  SPLIT_SETTING,
   PLANNER_URL_SETTING,
   TAB_ICON,
 } from '../constants';
-import {
-  collectPaneKeys,
-  removePane,
-  setSplitInWindowUrl,
-  toRemIdTree,
-} from '../window_tree';
+import { collectPaneKeys, removePane, toRemIdTree } from '../window_tree';
 
 /**
  * Dev-only: ship real data to the dev-server log. The plugin runs in a sandboxed
@@ -63,14 +56,6 @@ async function onActivate(plugin: ReactRNPlugin) {
       { key: OPEN_IN_PANE, label: 'Pane (default, full size)', value: OPEN_IN_PANE },
       { key: OPEN_IN_FLOATING, label: 'Floating window (avoids the window-string errors)', value: OPEN_IN_FLOATING },
     ],
-  });
-
-  await plugin.settings.registerNumberSetting({
-    id: SPLIT_SETTING,
-    title: 'Split: percent given to the other pane',
-    description:
-      'When Assignments opens beside a document, how much width the document keeps. 55 leaves the planner 45%.',
-    defaultValue: DEFAULT_SPLIT,
   });
 
   // No WidgetLocation.LeftSidebar widget here on purpose. That location is a
@@ -137,44 +122,6 @@ async function onActivate(plugin: ReactRNPlugin) {
    * Resize the split so the planner takes its configured share. Cosmetic, so
    * any failure is swallowed rather than nagged about.
    */
-  /**
-   * Resize the split by rewriting the window URL, which is the only place the
-   * widget pane's id appears. setRemWindowTree can't express a widget pane -
-   * it has no remId - and feeding it a paneId makes RemNote replace the
-   * planner with a pane pointing at a Rem that doesn't exist.
-   */
-  const applySplit = async () => {
-    try {
-      const pct = (await plugin.settings.getSetting<number>(SPLIT_SETTING)) ?? DEFAULT_SPLIT;
-      const url = await plugin.window.getURL();
-      const next = setSplitInWindowUrl(url, pct);
-      await diag(plugin, 'applySplit', { pct, url, next });
-      if (!next || next === url) return;
-
-      // setURL updates the address but RemNote never re-applies the layout from
-      // it. setCurrentWindowTreeFromString is the API that actually consumes a
-      // window string, so try it first - it takes the string on its own,
-      // without the /w/<kb>/ prefix.
-      const windowString = next.slice(next.lastIndexOf('/') + 1);
-      try {
-        await plugin.window.setCurrentWindowTreeFromString(windowString);
-        await diag(plugin, 'afterFromString', {
-          windowString,
-          url: await plugin.window.getURL(),
-          tree: await plugin.window.getCurrentWindowTree(),
-        });
-        return;
-      } catch (e) {
-        await diag(plugin, 'fromString failed', { windowString, error: describe(e) });
-      }
-
-      await plugin.window.setURL(next);
-      await diag(plugin, 'afterSetURL', await plugin.window.getURL());
-    } catch (e) {
-      await diag(plugin, 'applySplit failed', describe(e));
-    }
-  };
-
   const toggle = async () => {
     try {
       const mode = await plugin.settings.getSetting<string>(OPEN_IN_SETTING);
@@ -207,12 +154,18 @@ async function onActivate(plugin: ReactRNPlugin) {
         return;
       }
 
+      // The 50/50 split can't be changed. A widget pane has no remId, so
+      // setRemWindowTree can't name it (getOpenPaneRemId -> undefined);
+      // setURL updates the address but RemNote never re-renders from it; and
+      // setCurrentWindowTreeFromString crashes inside RemNote on its own
+      // string - "TypeError: Cannot read properties of undefined (reading
+      // 'first')" - which is the same defect behind the "Cannot parse window
+      // string" toasts. Drag the divider, or use floating mode for a set size.
       await plugin.window.openWidgetInPane(PANE_WIDGET);
 
       // Whatever pane appeared is the planner's.
       const afterKeys = collectPaneKeys(await plugin.window.getCurrentWindowTree());
       plannerPaneKey = afterKeys.find((k) => !beforeKeys.includes(k));
-      await applySplit();
     } catch (e) {
       await plugin.app.toast('Assignments: ' + describe(e));
     }

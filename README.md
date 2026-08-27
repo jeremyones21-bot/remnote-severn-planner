@@ -27,7 +27,6 @@ assignments and notes live in the same window.
 | --- | --- | --- |
 | Assignments URL | `https://severnplanner.edgeone.app` | The site loaded in the pane. Point it at a local dev build to test changes. |
 | Open Assignments in | Pane | `Pane` is full size; `Floating window` avoids the error below. |
-| Split: percent given to the other pane | 55 | Width the document keeps when Assignments opens beside it, leaving the planner 45%. |
 
 ## The "cannot parse window string" error
 
@@ -43,21 +42,25 @@ it, and the toast markup belongs to RemNote. The only way to avoid it is to avoi
 set **Open Assignments in → Floating window**, which uses `openFloatingWidget` and never
 touches the pane layout. Pane remains the default because it's the better view.
 
-### The window string, and the split
+### The split can't be changed (verified)
 
-RemNote's error text leaks the format its layout serialiser uses:
+The planner always opens 50/50 and nothing in the plugin API can change it. Every route
+was tried against a live RemNote:
 
-```
-Cannot parse window string: (notes~)_(widget~8L6vpwrxdTePMKtMW)_51
-```
+| Route | Result |
+| --- | --- |
+| `setRemWindowTree` | Can't name a widget pane. The tree leaf is `{paneId}` with **no** `remId`; `getOpenPaneRemId` returns `undefined` and `getOpenPaneRemIds` reports `null` for it |
+| Passing `paneId` as the remId | Accepted — and destructive. RemNote replaced the planner with a pane pointing at a nonexistent Rem |
+| `setURL` | The URL updates (`getURL` confirms the new percentage) but RemNote never re-renders the layout from it |
+| `setCurrentWindowTreeFromString` | Crashes inside RemNote: `TypeError: Cannot read properties of undefined (reading 'first')` |
 
-Two useful facts: the trailing number is the split percentage, and a widget pane *is*
-identified — as `widget~<id>`, not a real RemId. So `toRemIdTree` must preserve
-`widget~` ids rather than reject them, and the split is settable by writing
-`splitPercentage` back through `setRemWindowTree`.
+The window string looks like `(<remId>)_(widget~<widgetId>)_<split>` — that last route
+feeds RemNote a string it generated itself, and its parser throws. This is the same
+defect behind the "Cannot parse window string" toasts: **RemNote cannot round-trip a
+layout containing a widget pane.**
 
-`setSplitForPane` takes the share for the *other* pane, so callers don't have to know
-which side `openWidgetInPane` put the planner on.
+Workarounds: drag the divider by hand, or use floating-window mode, where the plugin
+sets exact pixel dimensions and the pane layout is never involved.
 
 ### Toggling in pane mode
 
