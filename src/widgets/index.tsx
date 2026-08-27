@@ -31,10 +31,10 @@ async function onActivate(plugin: ReactRNPlugin) {
     title: 'Open Assignments in',
     description:
       'A floating window avoids RemNote\'s "cannot parse window string" errors, which only occur for panes.',
-    defaultValue: OPEN_IN_FLOATING,
+    defaultValue: OPEN_IN_PANE,
     options: [
-      { key: OPEN_IN_PANE, label: 'Pane (full size, but RemNote logs errors)', value: OPEN_IN_PANE },
-      { key: OPEN_IN_FLOATING, label: 'Floating window (default, no errors)', value: OPEN_IN_FLOATING },
+      { key: OPEN_IN_PANE, label: 'Pane (default, full size)', value: OPEN_IN_PANE },
+      { key: OPEN_IN_FLOATING, label: 'Floating window (avoids the window-string errors)', value: OPEN_IN_FLOATING },
     ],
   });
 

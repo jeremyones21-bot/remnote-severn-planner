@@ -26,7 +26,7 @@ assignments and notes live in the same window.
 | Setting | Default | Purpose |
 | --- | --- | --- |
 | Assignments URL | `https://severnplanner.edgeone.app` | The site loaded in the pane. Point it at a local dev build to test changes. |
-| Open Assignments in | Floating window | `Floating window` avoids the error below; `Pane` is full size but triggers it. |
+| Open Assignments in | Pane | `Pane` is full size; `Floating window` avoids the error below. |
 
 ## The "cannot parse window string" error
 
@@ -38,8 +38,9 @@ to a string (the format `setCurrentWindowTreeFromString` consumes). The same mis
 `remId` is why an early version of the toggle silently opened a second planner.
 
 A plugin can't suppress errors raised by RemNote's own serialiser - there is no API for
-it, and the toast markup belongs to RemNote. The workaround is to avoid panes, so
-**Floating window is the default**: `openFloatingWidget` never touches the pane layout.
+it, and the toast markup belongs to RemNote. The only way to avoid it is to avoid panes:
+set **Open Assignments in → Floating window**, which uses `openFloatingWidget` and never
+touches the pane layout. Pane remains the default because it's the better view.
 
 ### Toggling in pane mode
 
