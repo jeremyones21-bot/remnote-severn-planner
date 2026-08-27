@@ -99,3 +99,38 @@ export const setSplitForPane = (node: any, key: string, otherPercent: number): a
     second: setSplitForPane(node.second, key, otherPercent),
   };
 };
+
+/**
+ * Rewrite the split percentage in RemNote's window URL.
+ *
+ * `getURL()` returns e.g.
+ *   /w/<kb>/(College-Essay-Ideas-ss8wgQBknVCx4Q2Te)_(widget~ezj6GaNbNgPH7BGWu)_50
+ * which is the one place the widget pane's id is exposed - the pane tree has
+ * only a paneId, and getOpenPaneRemId returns undefined for it. So the split is
+ * set through the URL rather than setRemWindowTree, which cannot represent a
+ * widget pane at all.
+ *
+ * `otherPercent` is the share for the non-planner pane. Returns undefined when
+ * the URL isn't a two-pane layout containing the planner, so the caller can
+ * leave the layout untouched.
+ */
+export const setSplitInWindowUrl = (url: string, otherPercent: number): string | undefined => {
+  const trailing = url.match(/^(.*)_(\d+)$/);
+  if (!trailing) return undefined;
+
+  const panes = trailing[1];
+  const sep = panes.lastIndexOf(')_(');
+  if (sep === -1) return undefined;
+
+  const first = panes.slice(0, sep + 1);
+  const second = panes.slice(sep + 2);
+
+  const plannerFirst = first.includes('widget~');
+  const plannerSecond = second.includes('widget~');
+  if (plannerFirst === plannerSecond) return undefined; // neither, or ambiguous
+
+  const percent = plannerSecond ? otherPercent : 100 - otherPercent;
+  if (percent < 1 || percent > 99) return undefined;
+
+  return `${panes}_${percent}`;
+};

@@ -10,7 +10,12 @@ import {
   PLANNER_URL_SETTING,
   TAB_ICON,
 } from '../constants';
-import { collectPaneKeys, removePane, setSplitForPane, toRemIdTree } from '../window_tree';
+import {
+  collectPaneKeys,
+  removePane,
+  setSplitInWindowUrl,
+  toRemIdTree,
+} from '../window_tree';
 
 /**
  * Dev-only: ship real data to the dev-server log. The plugin runs in a sandboxed
@@ -132,47 +137,21 @@ async function onActivate(plugin: ReactRNPlugin) {
    * Resize the split so the planner takes its configured share. Cosmetic, so
    * any failure is swallowed rather than nagged about.
    */
-  const applySplit = async (key: string) => {
+  /**
+   * Resize the split by rewriting the window URL, which is the only place the
+   * widget pane's id appears. setRemWindowTree can't express a widget pane -
+   * it has no remId - and feeding it a paneId makes RemNote replace the
+   * planner with a pane pointing at a Rem that doesn't exist.
+   */
+  const applySplit = async () => {
     try {
       const pct = (await plugin.settings.getSetting<number>(SPLIT_SETTING)) ?? DEFAULT_SPLIT;
-      const tree = await plugin.window.getCurrentWindowTree();
-      const withSplit = setSplitForPane(tree, key, pct);
-      const next = toRemIdTree(withSplit);
-      let paneRemId: unknown = '(not queried)';
-      try {
-        paneRemId = await plugin.window.getOpenPaneRemId(key);
-      } catch (e) {
-        paneRemId = 'threw: ' + describe(e);
-      }
-      // The window string RemNote fails to parse looks like
-      //   (<remId>)_(widget~<widgetId>)_<split>
-      // If that widget id is reachable, the split can be written as a string
-      // even though setRemWindowTree can't express a widget pane.
-      let url: unknown = '(not queried)';
-      try {
-        url = await plugin.window.getURL();
-      } catch (e) {
-        url = 'threw: ' + describe(e);
-      }
-      let openPaneRemIds: unknown = '(not queried)';
-      try {
-        openPaneRemIds = await plugin.window.getOpenPaneRemIds();
-      } catch (e) {
-        openPaneRemIds = 'threw: ' + describe(e);
-      }
-      await diag(plugin, 'applySplit', {
-        key,
-        pct,
-        paneRemId,
-        url,
-        openPaneRemIds,
-        tree,
-        withSplit,
-        next,
-      });
-      if (!next) return;
-      await plugin.window.setRemWindowTree(next);
-      await diag(plugin, 'afterWrite', await plugin.window.getCurrentWindowTree());
+      const url = await plugin.window.getURL();
+      const next = setSplitInWindowUrl(url, pct);
+      await diag(plugin, 'applySplit', { pct, url, next });
+      if (!next || next === url) return;
+      await plugin.window.setURL(next);
+      await diag(plugin, 'afterSetURL', await plugin.window.getURL());
     } catch (e) {
       await diag(plugin, 'applySplit failed', describe(e));
     }
@@ -215,7 +194,7 @@ async function onActivate(plugin: ReactRNPlugin) {
       // Whatever pane appeared is the planner's.
       const afterKeys = collectPaneKeys(await plugin.window.getCurrentWindowTree());
       plannerPaneKey = afterKeys.find((k) => !beforeKeys.includes(k));
-      if (plannerPaneKey) await applySplit(plannerPaneKey);
+      await applySplit();
     } catch (e) {
       await plugin.app.toast('Assignments: ' + describe(e));
     }
